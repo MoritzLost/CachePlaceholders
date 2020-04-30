@@ -1,0 +1,263 @@
+<?php
+
+namespace ProcessWire;
+
+use ArrayAccess;
+use InvalidArgumentException;
+
+class CacheableTokenReplacements extends Wire implements Module
+{
+    public const DEFAULT_DELIMITER_START = '{{{';
+
+    public const DEFAULT_DELIMITER_END = '}}}';
+
+    public const DEFAULT_DELIMITER_ARGUMENTS = '::';
+
+    public const DEFAULT_DELIMITER_KEY_VALUE = '=';
+
+    public const DEFAULT_DELIMITER_MULTIVALUE = '|';
+
+    public static function getModuleInfo()
+    {
+        return [
+            'title' => __('Cacheable Token Replacements'),
+            'version' => '0.1.0',
+            'summary' => __('Simple dynamic placeholders for cached content.'),
+            'autoload' => true,
+            'singular' => true,
+            'icon' => 'smile-o',
+            'requires' => [],
+            'installs' => [],
+        ];
+    }
+
+    /**
+     * Automatically called by ProcessWire during initialization. Registers
+     * required hooks.
+     *
+     * @return void
+     */
+    public function init()
+    {
+        $this->addHookAfter('Page::render', $this, 'pageRenderHook');
+    }
+
+    /**
+     * Called after Page::render to replace tokens in the output. This gets called
+     * even when the page is served from the template render cache.
+     *
+     * @param HookEvent $e
+     * @return void
+     */
+    public function pageRenderHook(HookEvent $e)
+    {
+        if (!$this->PageRenderHookActive) return;
+        if ($this->PageRenderHookFrontendOnly && $this->wire('page')->rootParent->id == 2) return;
+        $e->return = $this->replaceTokens($e->return);
+    }
+
+    /**
+     * Return a list of tokens. The returned array is an associative array where
+     * keys are the token name and values an associative array with token information.
+     * The only required key for each token is 'callback', which should hold the
+     * callback that returns the replacement value for this value. The callback
+     * needs to accept a single array argument (which will hold information on
+     * the token) and return a string.
+     *
+     * @return array
+     */
+    public function ___getTokens(): array
+    {
+        return [
+            'superglobal' => [
+                'callback' => [$this, 'tokenSuperglobal']
+            ],
+            'csrf' => [
+                'callback' => [$this, 'tokenCSRF']
+            ],
+        ];
+    }
+
+    /**
+     * This is the main function of this module, 
+     *
+     * @param string $text
+     * @return string
+     */
+    public function ___replaceTokens(string $text): string
+    {
+        $tokens = $this->getTokens();
+        return preg_replace_callback(
+            // @TODO: dynamic placeholders
+            '/{{{([a-zA-Z0-9_-]+)::([a-zA-Z0-9:|=_-]+)?}}}/',
+            function (array $matches) use ($tokens) {
+                // name of the token
+                $name = $matches[1];
+                if (!array_key_exists($name, $tokens)) {
+                    // if the name is no defined token, just return the complete match as-is
+                    // @TODO: log "missing token" message for debugging
+                    return $matches[0];
+                }
+                // raw params string, if any
+                $params = isset($matches[2]) ? $matches[2] : null;
+                // collect data to pass to the replacement function
+                $tokenData = [
+                    // the complete original token as it appeared in the text, in case it's needed
+                    'original' => $matches[0],
+                    // name of the token
+                    'name' => $matches[1],
+                    // params (parsed as an array)
+                    'params' => $params ? $this->parseParameters($params) : [],
+                    // the raw parameter string
+                    'raw_params' => $params,
+                ];
+                $token = $tokens[$name];
+                if (!array_key_exists('callback', $token)) {
+                    throw new \InvalidArgumentException(sprintf(
+                        'Missing callback for token %s.', $name
+                    ));
+                }
+                $callback = $token['callback']; // @TODO: make "callback" a const
+                if (!is_callable($callback)) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Callback for token "%s" must be a callable. Got variable of type %s',
+                        $name,
+                        gettype($callback)
+                    ));
+                }
+                return call_user_func($callback, $tokenData);
+            },
+            $text
+        );
+    }
+
+    /**
+     * The callback method for the "superglobal" token. This token takes two
+     * parameters. The first one is the name of one of PHP's superglobals (in
+     * lowercase, without the leading '$_'). The second is an array of string
+     * keys that form the path for the replacement value inside the superglobal.
+     *
+     * For example, consider the following token:
+     * {{{superglobal::session::path|to|var}}}
+     *
+     * This yields the following value:
+     * $_SESSION['path']['to']['var']
+     *
+     * If the path is not valid, an empty string is returned.
+     *
+     * @param array $tokenData
+     * @return string
+     */
+    public function ___tokenSuperglobal(array $tokenData): string
+    {
+        $superglobals = [
+            'session' => $_SESSION ?? null,
+            'request' => $_REQUEST ?? null,
+            'get' => $_GET ?? null,
+            'post' => $_POST ?? null,
+            'cookie' => $_COOKIE ?? null,
+            'server' => $_SERVER ?? null,
+            'env' => $_ENV ?? null,
+        ];
+        [$superglobal, $varPath] = $tokenData['params'];
+        if (!array_key_exists($superglobal, $superglobals)) {
+            // @TODO: Log missing superglobal
+            return $tokenData['original'];
+        }
+        $val = $this->getDataFromArrayByPath($superglobals[$superglobal], $varPath);
+        try {
+            return (string) $val;
+        } catch (\Throwable $e) {
+            // @TODO: log non-string value error
+            return '';
+        }
+    }
+
+    /**
+     * Get an CSRF input (HTML input element) from ProcessWire's SessionCSRF.
+     * An ID can optionally be passed as the first parameter.
+     *
+     * @see https://processwire.com/api/ref/session-c-s-r-f/render-input/
+     * @param array $tokenData
+     * @return string
+     */
+    public function ___tokenCSRF(array $tokenData): string
+    {
+        $sessionCSRF = $this->wire('session')->CSRF();
+        $id = count($tokenData['params'] > 0) ? reset($tokenData['params']) : null;
+        if (null !== $id) {
+            return $sessionCSRF->renderInput($id);
+        } else {
+            return $sessionCSRF->renderInput();
+        }
+    }
+
+    /**
+     * Helper method to parse the parameters of a token into structured data.
+     *
+     * @param string $params
+     * @return array
+     */
+    public static function parseParameters(string $params): array
+    {
+        // split into an array of parameters
+        $splitParameters = explode('::', $params);
+        // this will hold the parsed parameters
+        $parsedParameters = [];
+        foreach ($splitParameters as $param) {
+            // split on the assignment operator (if it exists in the parameter)
+            $assignmentSplit = explode('=', $param);
+            // each parameter may contain assi
+            if (count($assignmentSplit) > 2) {
+                throw new \InvalidArgumentException(sprintf(
+                    'Each token parameter must not contain more than one assignment operator (%s). Invalid parameter text: %s',
+                    '=',
+                    $param
+                ));
+            }
+            // if the assignment operator exists, we treat the parameter as a key => value pair
+            $hasKeyAndValue = count($assignmentSplit) === 2;
+            $value = $hasKeyAndValue ? $assignmentSplit[1] : $assignmentSplit[0];
+            // if the value is a list of values (separated by the multivalue-seperator), explode it into an array
+            $parsedValue = strpos($value, '|') !== false ? explode('|', $value) : $value;
+            if ($hasKeyAndValue) {
+                // for key => value pairs, add to the array as an associative entry
+                $parsedParameters[$assignmentSplit[0]] = $parsedValue;
+            } else {
+                // for values without a key, add to the array as a numeric entry
+                $parsedParameters[] = $parsedValue;
+            }
+        }
+        return $parsedParameters;
+    }
+
+    /**
+     * Helper method to access a nested value inside an array. For example:
+     *
+     * $nested = ['a' => ['nested' => ['array' => 'VALUE']]];
+     * $path = ['a', 'nested', 'array'];
+     * CacheableTokenReplacements::getDataFromArrayByPath($nested, $path); // 'VALUE'
+     *
+     * @param array $array      The array to access a value from.
+     * @param array $path       Array of string keys that make up the "path" to access in the above array.
+     * @param string $default   Default value to return if the path does not exist.
+     * @return mixed
+     */
+    public static function getDataFromArrayByPath(array &$array, array $path, $default = '')
+    {
+        $lastKey = end($path);
+        $currentLevel = &$array;
+        foreach ($path as $next) {
+            // abort if the next key does not exist on the current level
+            if (!isset($currentLevel[$next])) {
+                return $default;
+            }
+            // except for the leaf node, the value on the level needs to be an array
+            if ($next !== $lastKey && !(is_array($currentLevel[$next]) || $currentLevel[$next] instanceof \ArrayAccess)) {
+                return $default;
+            }
+            $currentLevel = &$currentLevel[$next];
+        }
+        return $currentLevel;
+    }
+}
