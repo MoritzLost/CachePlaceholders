@@ -11,7 +11,7 @@ class CacheableTokenReplacementsConfig extends ModuleConfig
             'PageRenderHookFrontendOnly' => true,
             'DelimiterStart' => CacheableTokenReplacements::DEFAULT_DELIMITER_START,
             'DelimiterEnd' => CacheableTokenReplacements::DEFAULT_DELIMITER_END,
-            'DelimiterParameters' => CacheableTokenReplacements::DEFAULT_DELIMITER_ARGUMENTS,
+            'DelimiterParameters' => CacheableTokenReplacements::DEFAULT_DELIMITER_PARAMETERS,
             'DelimiterKeyValue' => CacheableTokenReplacements::DEFAULT_DELIMITER_KEY_VALUE,
             'DelimiterMultivalue' => CacheableTokenReplacements::DEFAULT_DELIMITER_MULTIVALUE,
         ];

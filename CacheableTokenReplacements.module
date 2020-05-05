@@ -2,20 +2,28 @@
 
 namespace ProcessWire;
 
-use ArrayAccess;
-use InvalidArgumentException;
-
 class CacheableTokenReplacements extends Wire implements Module
 {
+    /** @var string The default start delimiter for tokens. */
     public const DEFAULT_DELIMITER_START = '{{{';
 
+    /** @var string The default end delimiter for tokens. */
     public const DEFAULT_DELIMITER_END = '}}}';
 
-    public const DEFAULT_DELIMITER_ARGUMENTS = '::';
+    /** @var string The default delimiter between the token name and each individual parameter. */
+    public const DEFAULT_DELIMITER_PARAMETERS = '::';
 
+    /** @var string The default delimiter to split a parameter into a key => value pair. */
     public const DEFAULT_DELIMITER_KEY_VALUE = '=';
 
+    /** @var string The default delimiter for a multivalue parameter. */
     public const DEFAULT_DELIMITER_MULTIVALUE = '|';
+
+    /** @var string The array key used to store the callback inside the token data. */
+    public const TOKEN_KEY_CALLBACK = 'callback';
+
+    /** @var string Name of the dedicated log file for this module. */
+    public const LOG_NAME = 'cache-tokens';
 
     public static function getModuleInfo()
     {
@@ -37,8 +45,10 @@ class CacheableTokenReplacements extends Wire implements Module
      *
      * @return void
      */
-    public function init()
+    public function ready()
     {
+        if (!$this->PageRenderHookActive) return;
+        if ($this->PageRenderHookFrontendOnly && $this->wire('page')->rootParent->id == 2) return;
         $this->addHookAfter('Page::render', $this, 'pageRenderHook');
     }
 
@@ -51,8 +61,6 @@ class CacheableTokenReplacements extends Wire implements Module
      */
     public function pageRenderHook(HookEvent $e)
     {
-        if (!$this->PageRenderHookActive) return;
-        if ($this->PageRenderHookFrontendOnly && $this->wire('page')->rootParent->id == 2) return;
         $e->return = $this->replaceTokens($e->return);
     }
 
@@ -70,35 +78,65 @@ class CacheableTokenReplacements extends Wire implements Module
     {
         return [
             'superglobal' => [
-                'callback' => [$this, 'tokenSuperglobal']
+                self::TOKEN_KEY_CALLBACK => [$this, 'tokenSuperglobal']
             ],
             'csrf' => [
-                'callback' => [$this, 'tokenCSRF']
+                self::TOKEN_KEY_CALLBACK => [$this, 'tokenCSRF']
             ],
         ];
     }
 
     /**
-     * This is the main function of this module, 
+     * This is the main function of this module. If you have activated the
+     * automatic option in the module configuration, this gets called for every
+     * request with the entire generated source code of the page.
+     * You can also call this manually to replace any cache tokens within the
+     * text you pass it.
      *
-     * @param string $text
+     * @param string $text  The text to find and replace tokens in.
      * @return string
      */
     public function ___replaceTokens(string $text): string
     {
         $tokens = $this->getTokens();
+        // parse all delimiters that may occur inside a token to get the list of allowed characters for the regex
+        $additionalAllowedCharactersInTokens = preg_quote(implode(array_unique(mb_str_split(
+            $this->DelimiterParameters . $this->DelimiterKeyValue . $this->DelimiterMultivalue
+        ))), '/');
+        $regex = sprintf(
+            '/%1$s([a-zA-Z0-9_-]+)%3$s?([a-zA-Z0-9%4$s_-]+)?%2$s/u',
+            preg_quote($this->DelimiterStart, '/'),
+            preg_quote($this->DelimiterEnd, '/'),
+            preg_quote($this->DelimiterParameters, '/'),
+            $additionalAllowedCharactersInTokens
+        );
         return preg_replace_callback(
-            // @TODO: dynamic placeholders
-            '/{{{([a-zA-Z0-9_-]+)::([a-zA-Z0-9:|=_-]+)?}}}/',
+            $regex,
             function (array $matches) use ($tokens) {
-                // name of the token
                 $name = $matches[1];
                 if (!array_key_exists($name, $tokens)) {
                     // if the name is no defined token, just return the complete match as-is
-                    // @TODO: log "missing token" message for debugging
+                    $this->log(sprintf(
+                        $this->_('Ignoring token "%s" because no token definition exists. Add the token to getTokens() first.'),
+                        $name
+                    ));
                     return $matches[0];
                 }
-                // raw params string, if any
+                $token = $tokens[$name];
+                if (!is_array($token) || !array_key_exists(self::TOKEN_KEY_CALLBACK, $token)) {
+                    // the token exists but is missing a callback to parse it
+                    throw new \InvalidArgumentException(sprintf(
+                        $this->_('Token data is invalid or missing the callback (%s).'), $name
+                    ));
+                }
+                $callback = $token[self::TOKEN_KEY_CALLBACK];
+                if (!is_callable($callback)) {
+                    throw new \InvalidArgumentException(sprintf(
+                        'Callback for token "%s" must be a callable. Got variable of type %s.',
+                        $name,
+                        gettype($callback)
+                    ));
+                }
                 $params = isset($matches[2]) ? $matches[2] : null;
                 // collect data to pass to the replacement function
                 $tokenData = [
@@ -106,25 +144,11 @@ class CacheableTokenReplacements extends Wire implements Module
                     'original' => $matches[0],
                     // name of the token
                     'name' => $matches[1],
-                    // params (parsed as an array)
+                    // parameters (parsed as an array)
                     'params' => $params ? $this->parseParameters($params) : [],
-                    // the raw parameter string
+                    // the raw parameter string, if any
                     'raw_params' => $params,
                 ];
-                $token = $tokens[$name];
-                if (!array_key_exists('callback', $token)) {
-                    throw new \InvalidArgumentException(sprintf(
-                        'Missing callback for token %s.', $name
-                    ));
-                }
-                $callback = $token['callback']; // @TODO: make "callback" a const
-                if (!is_callable($callback)) {
-                    throw new InvalidArgumentException(sprintf(
-                        'Callback for token "%s" must be a callable. Got variable of type %s',
-                        $name,
-                        gettype($callback)
-                    ));
-                }
                 return call_user_func($callback, $tokenData);
             },
             $text
@@ -160,21 +184,29 @@ class CacheableTokenReplacements extends Wire implements Module
             'env' => $_ENV ?? null,
         ];
         [$superglobal, $varPath] = $tokenData['params'];
-        if (!array_key_exists($superglobal, $superglobals)) {
-            // @TODO: Log missing superglobal
+        if (!array_key_exists($superglobal, $superglobals) || null === $superglobals[$superglobals]) {
+            $this->log(sprintf(
+                $this->_('Token superglobal: Missing superglobal "%1$s". It may have been turned off through your variables_order configuration. See %2$s'),
+                $superglobal,
+                'https://www.php.net/manual/en/ini.core.php#ini.variables-order'
+            ));
             return $tokenData['original'];
         }
         $val = $this->getDataFromArrayByPath($superglobals[$superglobal], $varPath);
         try {
             return (string) $val;
         } catch (\Throwable $e) {
-            // @TODO: log non-string value error
+            $this->log(sprintf(
+                $this->_("Token superglobal: Can't convert value of type %s to string."),
+                gettype($val)
+            ));
             return '';
         }
     }
 
     /**
-     * Get an CSRF input (HTML input element) from ProcessWire's SessionCSRF.
+     * The callback method for the "csrf" token. This token outputs a CSRF input
+     * (HTML input element) using ProcessWire's SessionCSRF.
      * An ID can optionally be passed as the first parameter.
      *
      * @see https://processwire.com/api/ref/session-c-s-r-f/render-input/
@@ -198,20 +230,20 @@ class CacheableTokenReplacements extends Wire implements Module
      * @param string $params
      * @return array
      */
-    public static function parseParameters(string $params): array
+    public function parseParameters(string $params): array
     {
         // split into an array of parameters
-        $splitParameters = explode('::', $params);
+        $splitParameters = explode($this->DelimiterParameters, $params);
         // this will hold the parsed parameters
         $parsedParameters = [];
         foreach ($splitParameters as $param) {
             // split on the assignment operator (if it exists in the parameter)
-            $assignmentSplit = explode('=', $param);
-            // each parameter may contain assi
+            $assignmentSplit = explode($this->DelimiterKeyValue, $param);
+            // each parameter may contain only one assignment character
             if (count($assignmentSplit) > 2) {
                 throw new \InvalidArgumentException(sprintf(
                     'Each token parameter must not contain more than one assignment operator (%s). Invalid parameter text: %s',
-                    '=',
+                    $this->DelimiterKeyValue,
                     $param
                 ));
             }
@@ -219,7 +251,9 @@ class CacheableTokenReplacements extends Wire implements Module
             $hasKeyAndValue = count($assignmentSplit) === 2;
             $value = $hasKeyAndValue ? $assignmentSplit[1] : $assignmentSplit[0];
             // if the value is a list of values (separated by the multivalue-seperator), explode it into an array
-            $parsedValue = strpos($value, '|') !== false ? explode('|', $value) : $value;
+            $parsedValue = strpos($value, $this->DelimiterMultivalue) !== false
+                ? explode($this->DelimiterMultivalue, $value)
+                : $value;
             if ($hasKeyAndValue) {
                 // for key => value pairs, add to the array as an associative entry
                 $parsedParameters[$assignmentSplit[0]] = $parsedValue;
@@ -259,5 +293,16 @@ class CacheableTokenReplacements extends Wire implements Module
             $currentLevel = &$currentLevel[$next];
         }
         return $currentLevel;
+    }
+
+    /**
+     * Write a message to the log file associated with this module.
+     *
+     * @param string $message   The message to log.
+     * @return boolean
+     */
+    public function log(string $message): bool
+    {
+        return $this->wire('log')->save(self::LOG_NAME, $message);
     }
 }
