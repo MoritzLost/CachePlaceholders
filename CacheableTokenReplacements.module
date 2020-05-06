@@ -22,6 +22,9 @@ class CacheableTokenReplacements extends Wire implements Module
     /** @var string The array key used to store the callback inside the token data. */
     public const TOKEN_KEY_CALLBACK = 'callback';
 
+    /** @var string Partial regular expression for matching the name of a token only */
+    public const TOKEN_NAME_REGEX = '[a-zA-Z0-9_-]+';
+
     /** @var string Name of the dedicated log file for this module. */
     public const LOG_NAME = 'cache-tokens';
 
@@ -32,7 +35,7 @@ class CacheableTokenReplacements extends Wire implements Module
             'version' => '0.1.0',
             'summary' => __('Simple dynamic placeholders for cached content.'),
             'autoload' => true,
-            'singular' => true,
+            'singular' => false,
             'icon' => 'smile-o',
             'requires' => [],
             'installs' => [],
@@ -104,11 +107,12 @@ class CacheableTokenReplacements extends Wire implements Module
             $this->DelimiterParameters . $this->DelimiterKeyValue . $this->DelimiterMultivalue
         ))), '/');
         $regex = sprintf(
-            '/%1$s([a-zA-Z0-9_-]+)%3$s?([a-zA-Z0-9%4$s_-]+)?%2$s/u',
+            '/%1$s(%5$s)%3$s?([a-zA-Z0-9%4$s_-]+)?%2$s/u',
             preg_quote($this->DelimiterStart, '/'),
             preg_quote($this->DelimiterEnd, '/'),
             preg_quote($this->DelimiterParameters, '/'),
-            $additionalAllowedCharactersInTokens
+            $additionalAllowedCharactersInTokens,
+            self::TOKEN_NAME_REGEX
         );
         return preg_replace_callback(
             $regex,
@@ -126,7 +130,8 @@ class CacheableTokenReplacements extends Wire implements Module
                 if (!is_array($token) || !array_key_exists(self::TOKEN_KEY_CALLBACK, $token)) {
                     // the token exists but is missing a callback to parse it
                     throw new \InvalidArgumentException(sprintf(
-                        $this->_('Token data is invalid or missing the callback (%s).'), $name
+                        'Token data is invalid or missing the callback (%s).',
+                        $name
                     ));
                 }
                 $callback = $token[self::TOKEN_KEY_CALLBACK];
@@ -186,9 +191,8 @@ class CacheableTokenReplacements extends Wire implements Module
         [$superglobal, $varPath] = $tokenData['params'];
         if (!array_key_exists($superglobal, $superglobals) || null === $superglobals[$superglobals]) {
             $this->log(sprintf(
-                $this->_('Token superglobal: Missing superglobal "%1$s". It may have been turned off through your variables_order configuration. See %2$s'),
+                $this->_('Token superglobal: Missing superglobal "%1$s". It may have been turned off through your variables_order configuration. See https://www.php.net/manual/en/ini.core.php#ini.variables-order'),
                 $superglobal,
-                'https://www.php.net/manual/en/ini.core.php#ini.variables-order'
             ));
             return $tokenData['original'];
         }
