@@ -2,7 +2,7 @@
 
 namespace ProcessWire;
 
-class CacheableTokenReplacements extends Wire implements Module
+class CachePlaceholders extends Wire implements Module
 {
     /** @var string The default start delimiter for tokens. */
     public const DEFAULT_DELIMITER_START = '{{{';
@@ -31,14 +31,16 @@ class CacheableTokenReplacements extends Wire implements Module
     public static function getModuleInfo()
     {
         return [
-            'title' => __('Cacheable Token Replacements'),
+            'title' => __('Cacheable Placeholders'),
             'version' => '0.1.0',
-            'summary' => __('Simple dynamic placeholders for cached content.'),
+            'author' => "Moritz L'Hoest",
+            'href' => 'https://github.com/MoritzLost/CachePlaceholders',
+            'summary' => __('Allows you to cache dynamic content by using special placeholders that get parsed during every request.'),
             'autoload' => true,
-            'singular' => false,
-            'icon' => 'smile-o',
-            'requires' => [],
-            'installs' => [],
+            'icon' => 'thumb-tack',
+            'requires' => [
+                'PHP>=7.2',
+            ],
         ];
     }
 
@@ -246,7 +248,7 @@ class CacheableTokenReplacements extends Wire implements Module
             // each parameter may contain only one assignment character
             if (count($assignmentSplit) > 2) {
                 throw new \InvalidArgumentException(sprintf(
-                    'Each token parameter must not contain more than one assignment operator (%s). Invalid parameter text: %s',
+                    'Each token parameter must not contain more than one assignment operator (%s). Invalid parameter: %s',
                     $this->DelimiterKeyValue,
                     $param
                 ));
@@ -274,7 +276,7 @@ class CacheableTokenReplacements extends Wire implements Module
      *
      * $nested = ['a' => ['nested' => ['array' => 'VALUE']]];
      * $path = ['a', 'nested', 'array'];
-     * CacheableTokenReplacements::getDataFromArrayByPath($nested, $path); // 'VALUE'
+     * CachePlaceholders::getDataFromArrayByPath($nested, $path); // 'VALUE'
      *
      * @param array $array      The array to access a value from.
      * @param array $path       Array of string keys that make up the "path" to access in the above array.

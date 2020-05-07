@@ -2,18 +2,18 @@
 
 namespace ProcessWire;
 
-class CacheableTokenReplacementsConfig extends ModuleConfig
+class CachePlaceholdersConfig extends ModuleConfig
 {
     public function getDefaults()
     {
         return [
             'PageRenderHookActive' => true,
             'PageRenderHookFrontendOnly' => true,
-            'DelimiterStart' => CacheableTokenReplacements::DEFAULT_DELIMITER_START,
-            'DelimiterEnd' => CacheableTokenReplacements::DEFAULT_DELIMITER_END,
-            'DelimiterParameters' => CacheableTokenReplacements::DEFAULT_DELIMITER_PARAMETERS,
-            'DelimiterKeyValue' => CacheableTokenReplacements::DEFAULT_DELIMITER_KEY_VALUE,
-            'DelimiterMultivalue' => CacheableTokenReplacements::DEFAULT_DELIMITER_MULTIVALUE,
+            'DelimiterStart' => CachePlaceholders::DEFAULT_DELIMITER_START,
+            'DelimiterEnd' => CachePlaceholders::DEFAULT_DELIMITER_END,
+            'DelimiterParameters' => CachePlaceholders::DEFAULT_DELIMITER_PARAMETERS,
+            'DelimiterKeyValue' => CachePlaceholders::DEFAULT_DELIMITER_KEY_VALUE,
+            'DelimiterMultivalue' => CachePlaceholders::DEFAULT_DELIMITER_MULTIVALUE,
         ];
     }
 
@@ -38,17 +38,17 @@ class CacheableTokenReplacementsConfig extends ModuleConfig
         $PageRenderHookFrontendOnly->columnWidth = 50;
         $PageRenderHookFrontendOnly->collapsed = Inputfield::collapsedNever;
 
-        $module = $this->modules->get('CacheableTokenReplacements');
+        $module = $this->modules->get('CachePlaceholders');
         $currentTokens = $module->getTokens();
         $tokenListMarkup = [];
         foreach ($currentTokens as $name => $token) {
             $nameIsValid = preg_match(
-                sprintf('/^%s$/', CacheableTokenReplacements::TOKEN_NAME_REGEX)
+                sprintf('/^%s$/', CachePlaceholders::TOKEN_NAME_REGEX)
                 , $name
             ) === 1;
             $callbackIsValid = (is_array($token) || $token instanceof \ArrayAccess)
-                && isset($token[CacheableTokenReplacements::TOKEN_KEY_CALLBACK])
-                && is_callable($token[CacheableTokenReplacements::TOKEN_KEY_CALLBACK]);
+                && isset($token[CachePlaceholders::TOKEN_KEY_CALLBACK])
+                && is_callable($token[CachePlaceholders::TOKEN_KEY_CALLBACK]);
             $errors = [
                 !$nameIsValid ? $this->_('The token name contains invalid characters.') : null,
                 !$callbackIsValid ? $this->_('The token definition does not include a valid callback.') : null,
