@@ -109,7 +109,7 @@ class CachePlaceholders extends Wire implements Module
             $this->DelimiterParameters . $this->DelimiterKeyValue . $this->DelimiterMultivalue
         ))), '/');
         $regex = sprintf(
-            '/%1$s(%5$s)%3$s?([a-zA-Z0-9%4$s_-]+)?%2$s/u',
+            '/%1$s(%5$s)(?:%3$s)?([a-zA-Z0-9%4$s_-]+)?%2$s/u',
             preg_quote($this->DelimiterStart, '/'),
             preg_quote($this->DelimiterEnd, '/'),
             preg_quote($this->DelimiterParameters, '/'),
@@ -222,7 +222,7 @@ class CachePlaceholders extends Wire implements Module
     public function ___tokenCSRF(array $tokenData): string
     {
         $sessionCSRF = $this->wire('session')->CSRF();
-        $id = count($tokenData['params'] > 0) ? reset($tokenData['params']) : null;
+        $id = count($tokenData['params']) > 0 ? reset($tokenData['params']) : null;
         if (null !== $id) {
             return $sessionCSRF->renderInput($id);
         } else {
