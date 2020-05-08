@@ -28,6 +28,9 @@ class CachePlaceholders extends Wire implements Module
     /** @var string Name of the dedicated log file for this module. */
     public const LOG_NAME = 'cache-tokens';
 
+    /** @var int Default length of the string returned by the random_hex token. */
+    public const TOKEN_RANDOM_HEX_DEFAULT_LENGTH = 16;
+
     public static function getModuleInfo()
     {
         return [
@@ -83,10 +86,13 @@ class CachePlaceholders extends Wire implements Module
     {
         return [
             'superglobal' => [
-                self::TOKEN_KEY_CALLBACK => [$this, 'tokenSuperglobal']
+                self::TOKEN_KEY_CALLBACK => [$this, 'tokenSuperglobal'],
             ],
             'csrf' => [
-                self::TOKEN_KEY_CALLBACK => [$this, 'tokenCSRF']
+                self::TOKEN_KEY_CALLBACK => [$this, 'tokenCSRF'],
+            ],
+            'random_hex' => [
+                self::TOKEN_KEY_CALLBACK => [$this, 'tokenRandomHex'],
             ],
         ];
     }
@@ -228,6 +234,20 @@ class CachePlaceholders extends Wire implements Module
         } else {
             return $sessionCSRF->renderInput();
         }
+    }
+
+    /**
+     * The callback method for the "random_hex" token. This returns a random
+     * hexadecimal string of the specified length. Length can only be even.
+     *
+     * @param array $tokenData
+     * @return string
+     */
+    public function ___tokenRandomHex(array $tokenData): string
+    {
+        $length = (int) ($tokenData['params'][0] ?? self::TOKEN_RANDOM_HEX_DEFAULT_LENGTH);
+        $bytes = $length >= 2 ? (int) floor($length / 2) : 1;
+        return bin2hex(random_bytes($bytes));
     }
 
     /**
