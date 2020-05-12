@@ -197,12 +197,15 @@ class CachePlaceholders extends Wire implements Module
             'env' => $_ENV ?? null,
         ];
         [$superglobal, $varPath] = $tokenData['params'];
-        if (!array_key_exists($superglobal, $superglobals) || null === $superglobals[$superglobals]) {
+        if (!array_key_exists($superglobal, $superglobals) || null === $superglobals[$superglobal]) {
             $this->log(sprintf(
                 $this->_('Token superglobal: Missing superglobal "%1$s". It may have been turned off through your variables_order configuration. See https://www.php.net/manual/en/ini.core.php#ini.variables-order'),
                 $superglobal,
             ));
             return $tokenData['original'];
+        }
+        if (!is_array($varPath)) {
+            $varPath = [$varPath];
         }
         $val = $this->getDataFromArrayByPath($superglobals[$superglobal], $varPath);
         try {

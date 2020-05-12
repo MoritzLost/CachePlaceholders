@@ -23,6 +23,10 @@ This module aims to solve that by introducing placeholders into your cached cont
     - the more features, the slower it is
     - intended as a developer tool, NOT a variable context parser / shortcode module; placeholders should be placed by the developer, not the user
 
+### Does this support Form Builder's CSRF protection?
+
+Unfortunately, the commercial [Form Builder](https://processwire.com/store/form-builder/) module currently does not include any hooks that would allow this. If you have an idea how to make this work, talk to me!
+
 ## Usage & examples
 
 This is a step-by-step guide to getting started with a custom placeholder token.
@@ -81,7 +85,7 @@ Tokens can optionally include any number of parameters. Those get parsed and pas
 - Parameters including an equals sign `=` are named parameters, parameters without one are positional.
 - You can use multivalue parameters (represented as an array) by separating individual values with a pipe `|` (both in named and positional parameter values).
 
-The callback function for your token receives an array containing the following information on the token it replaces:
+The callback function for your token receives an array containing the following information on the token it replaces. For the example token above the function would receive the following data:
 
 ```php
 $tokens['random_number'] = [
@@ -189,8 +193,77 @@ echo $CachePlaceholders->replaceTokens('{{{greeting::mark}}}');
 
 ### Built-in tokens
 
-- built-in tokens
-    - superglobal
-    - csrf input
+The module comes with a couple of built-in tokens that you can use directly, adapt to your needs or modify through hooks.
+
+### superglobal: Accessing session, request or cookie data
+
+- Token name: `superglobal`
+- Hook: `CachePlaceholders::tokenSuperglobal`
+
+Use this token if you want to dynamically output data from one of PHP's [superglobals](https://www.php.net/manual/en/language.variables.superglobals.php). The most common use-case for this is accessing a string stored in the session or a cookie. It requires two parameters: The name of the superglobal you want to access (in lowercase, without the `$_` prefix) and key of the value you want to display. You can use it like this:
+
+```php
+$CachePlaceholders = wire('modules')->get('CachePlaceholders');
+
+// set a value for testing purposes
+$_SESSION['foobar'] = 'Some dynamic text';
+
+// the token parameters are the superglobal to get values from (session) and the array key to retrieve (foobar)
+$text = '{{{superglobal::session::foobar}}}';
+echo $CachePlaceholders->replaceTokens($text);
+// -> Some dynamic text
+
+// you can also get nested values, use a multi-value paramter for the array path
+$_SESSION['path']['to']['nested']['data'] = 'Nested session data';
+$text = '{{{superglobal::session::path|to|nested|data}}}';
+echo $CachePlaceholders->replaceTokens($text);
+// -> Nested session data
+```
+
+This is the list of superglobals you can access this way: `session` | `request` | `get` | `post` | `cookie` | `server` | `env`
+
+This token is also intended as a starting point for you to copy and adjust to your own needs. You can use the public helper method `CachePlaceholders::getDataFromArrayByPath` for retrieving data from nested arrays.
+
+### csrf: CSRF-Input for forms
+
+- Token name: `csrf`
+- Hook: `CachePlaceholders::tokenCSRF`
+
+This token is a thin wrapper around [SessionCSRF::renderInput](https://processwire.com/api/ref/session-c-s-r-f/render-input/). You can specify the optional ID as the first parameter. Usage:
+
+```php
+$CachePlaceholders = wire('modules')->get('CachePlaceholders');
+
+$text = '{{{csrf}}}';
+echo $CachePlaceholders->replaceTokens($text);
+// <input type="hidden" name="TOKEN1683095992X1589268804" value=".w8pIclLB/6MkxSxZ7Kq/VmHPv1DNyzs" class="_post_token">
+
+$text = '{{{csrf::foo_bar}}}';
+echo $CachePlaceholders->replaceTokens($text);
+// <input type="hidden" name="TOKEN1277485165X1589292868" value="G.bW4MFIi6aYbu/mv0E2oX.HVD2MuvO." class="_post_token">
+```
+
+You can use this placeholder inside custom forms and validate it using [SessionCSRF::hasValidToken](https://processwire.com/api/ref/session-c-s-r-f/has-valid-token/).
+
+### random_hex: Cryptographically secure hexdecimal tokens
+
+- Token name: `random_hey`
+- Hook: `CachePlaceholders::tokenRandomHex`
+
+This token generates a random hexdecimal string of the specified length (default: 16). This is just a wrapper around `bin2hex(random_bytes($length))`. Because of the way those functions work, it can only generate even-length strings. Usage:
+
+```php
+$CachePlaceholders = wire('modules')->get('CachePlaceholders');
+
+$text = '{{{random_hex}}}';
+echo $CachePlaceholders->replaceTokens($text);
+// bb485fa44b8da5ad
+
+$text = '{{{random_hex::6}}}';
+echo $CachePlaceholders->replaceTokens($text);
+// 793cf9
+```
+
+Since [random_bytes is cryptographically secure](https://www.php.net/manual/en/function.random-bytes.php), you can use this for nonce tokens or similar. You can hook after the token method to save the returned token to the session.
 
 ### Changing the token format
