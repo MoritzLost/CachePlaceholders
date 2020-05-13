@@ -168,7 +168,7 @@ wire()->addHookAfter('CachePlaceholders::getTokens', function (HookEvent $e) {
             $element = $tokenData['params'][0] ?? 'h1';
             $user = wire('user');
             $username = !$user->isGuest() ? ucfirst($user->name) : 'honoured guest';
-            return '<%1$s>Hello %2$s!</%1$s>';
+            return sprintf('<%1$s>Hello %2$s!</%1$s>', $element, $username);
         }
     ];
     $e->return = $tokens;
