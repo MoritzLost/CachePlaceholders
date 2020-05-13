@@ -31,7 +31,7 @@ Unfortunately, the commercial [Form Builder](https://processwire.com/store/form-
 
 This is a step-by-step guide to getting started with a custom placeholder token.
 
-First, you need to register your custom token with the module. This is done by hooking `CachePlaceholders::getTokens`. A token definition consists of an alphanumeric name (hyphens and underscores are allowed) and a callback function. The callback should return the dynamic value that you want to output in place of the token.
+First, you need to register your custom token(s) with the module (unless you want to use one of the built-in tokens, see below). This is done by hooking `CachePlaceholders::getTokens`. A token definition consists of an alphanumeric name (hyphens and underscores are allowed) and a callback function. The callback should return the dynamic value that you want to output in place of the token.
 
 ```php
 // site/ready.php
@@ -53,7 +53,7 @@ wire()->addHookAfter('CachePlaceholders::getTokens', function (HookEvent $e) {
 
 This registers a `random_number` token that just returns a new random integer every time using [rand](https://www.php.net/manual/en/function.rand.php). Read on below to find out how to use the `$tokenData` array to make the token more flexible. Now go to the module configuration (*Modules -> Configure -> CachePlaceholders*), which should list your random_number token in the *Token list* field. This will also alert if there are any problems with your token definition.
 
-Now add a the token somewhere in one of your PHP templates: `{{{random_number}}}` and reload the page. You should see a random number in place of the token. Now activate the template cache for the current template and open a new private window (so you see the page as a guest user). Reload the page a couple of times and check if the value is changing for every request. If it does, the module is working correctly and replacing values the token dynamically inside the cached page.
+Now add a the token somewhere in one of your PHP templates: `{{{random_number}}}` and reload the page. You should see a random number in place of the token. Now activate the template cache for the current template and open a new private window (so you see the page as a guest user). Reload the page a couple of times and check if the value is changing for every request. If it does, the module is working correctly and replacing the token dynamically inside the cached page.
 
 ### Manual usage
 
