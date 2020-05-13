@@ -25,7 +25,7 @@ class CachePlaceholdersConfig extends ModuleConfig
         $PageRenderHookActive->name = 'PageRenderHookActive';
         $PageRenderHookActive->label = $this->_('Automatic replacements');
         $PageRenderHookActive->label2 = $this->_('Activate automatic replacements');
-        $PageRenderHookActive->description = $this->_('If this box is checked, the module will add a hook after `Page::render` and perform the token replacements on the entire source code. This will work even if the response is served from the template render cache.');
+        $PageRenderHookActive->description = $this->_('If this box is checked, the module will add a hook after `Page::render` that performs the token replacement on the entire source code. This will work even if the response is served from the template render cache.');
         $PageRenderHookActive->notes = $this->_('Deactivate automatic mode if you want to call `replaceTokens` manually in your code.');
         $PageRenderHookActive->columnWidth = 50;
         $PageRenderHookActive->collapsed = Inputfield::collapsedNever;
@@ -72,15 +72,8 @@ class CachePlaceholdersConfig extends ModuleConfig
         $CurrentTokenDisplay = $this->modules->get('InputfieldMarkup');
         $CurrentTokenDisplay->label = $this->_('Token list');
         $CurrentTokenDisplay->description = $this->_('This list will show you all the tokens that currently exist. Use this to check if your custom tokens are being registered correctly. You will also see warnings if a token has an invalid name or is missing a valid callback.');
-        $CurrentTokenDisplay->columnWidth = 50;
         $CurrentTokenDisplay->collapsed = Inputfield::collapsedNever;
         $CurrentTokenDisplay->value = sprintf('%s', implode("\n", $tokenListMarkup));
-
-        $UsageInstructions = $this->modules->get('InputfieldMarkup');
-        $UsageInstructions->label = $this->_('Usage instructions');
-        $UsageInstructions->value = '@TODO: Write instructions.';
-        $UsageInstructions->columnWidth = 50;
-        $UsageInstructions->collapsed = Inputfield::collapsedNever;
 
         $DelimiterSettings = $this->modules->get('InputfieldFieldset');
         $DelimiterSettings->label = $this->_('Token format & delimiters');
@@ -108,7 +101,6 @@ class CachePlaceholdersConfig extends ModuleConfig
             $DelimiterSettings->add($DelimiterField);
         }
 
-        $inputfields->add($UsageInstructions);
         $inputfields->add($CurrentTokenDisplay);
         $inputfields->add($PageRenderHookActive);
         $inputfields->add($PageRenderHookFrontendOnly);
