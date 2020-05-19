@@ -35,7 +35,7 @@ class CachePlaceholders extends Wire implements Module
     {
         return [
             'title' => __('Cacheable Placeholders'),
-            'version' => '0.1.0',
+            'version' => '1.0.0',
             'author' => "Moritz L'Hoest",
             'href' => 'https://github.com/MoritzLost/CachePlaceholders',
             'summary' => __('Allows you to cache dynamic content by using special placeholders that get parsed during every request.'),
