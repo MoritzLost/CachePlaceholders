@@ -111,7 +111,8 @@ class CachePlaceholders extends Wire implements Module
     {
         $tokens = $this->getTokens();
         // parse all delimiters that may occur inside a token to get the list of allowed characters for the regex
-        $additionalAllowedCharactersInTokens = preg_quote(implode(array_unique(mb_str_split(
+        $splitMethod = function_exists('mb_str_split') ? 'mb_str_split' : 'str_split'; // mb_str_split is PHP>=7.4
+        $additionalAllowedCharactersInTokens = preg_quote(implode(array_unique($splitMethod(
             $this->DelimiterParameters . $this->DelimiterKeyValue . $this->DelimiterMultivalue
         ))), '/');
         $regex = sprintf(
