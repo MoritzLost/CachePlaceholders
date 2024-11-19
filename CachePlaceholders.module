@@ -4,6 +4,27 @@ namespace ProcessWire;
 
 class CachePlaceholders extends Wire implements Module
 {
+    /** @var bool Whether the automatic page render hook is active */
+    public $PageRenderHookActive;
+
+    /** @var bool Whether the hook should only be active for frontend requests */
+    public $PageRenderHookFrontendOnly;
+
+    /** @var string The start delimiter for tokens */
+    public $DelimiterStart;
+
+    /** @var string The end delimiter for tokens */
+    public $DelimiterEnd;
+
+    /** @var string The delimiter between token name and parameters */
+    public $DelimiterParameters;
+
+    /** @var string The delimiter for key-value pairs */
+    public $DelimiterKeyValue;
+
+    /** @var string The delimiter for multivalue parameters */
+    public $DelimiterMultivalue;
+
     /** @var string The default start delimiter for tokens. */
     public const DEFAULT_DELIMITER_START = '{{{';
 
