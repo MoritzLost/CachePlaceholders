@@ -2,7 +2,7 @@
 
 namespace ProcessWire;
 
-class CachePlaceholders extends Wire implements Module
+class CachePlaceholders extends WireData implements Module
 {
     /** @var bool Whether the automatic page render hook is active */
     public $PageRenderHookActive;
@@ -24,12 +24,6 @@ class CachePlaceholders extends Wire implements Module
 
     /** @var string The delimiter for multivalue parameters */
     public $DelimiterMultivalue;
-
-    /** @var bool Property used by ProcessWire's module system for uninstallation */
-    public $uninstall;
-    
-    /** @var bool Property used by ProcessWire's module system for saving configuration */
-    public $submit_save_module;
 
     /** @var string The default start delimiter for tokens. */
     public const DEFAULT_DELIMITER_START = '{{{';
