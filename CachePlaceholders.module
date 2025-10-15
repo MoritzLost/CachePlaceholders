@@ -2,7 +2,7 @@
 
 namespace ProcessWire;
 
-class CachePlaceholders extends Wire implements Module
+class CachePlaceholders extends WireData implements Module
 {
     /** @var bool Whether the automatic page render hook is active */
     public $PageRenderHookActive;
