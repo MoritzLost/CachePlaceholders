@@ -10,6 +10,9 @@ class CachePlaceholders extends WireData implements Module
     /** @var bool Whether the hook should only be active for frontend requests */
     public $PageRenderHookFrontendOnly;
 
+    /** @var bool Whether tokens should only be replaced for full-page renders */
+    public $PageRenderHookFullPageOnly;
+
     /** @var string The start delimiter for tokens */
     public $DelimiterStart;
 
@@ -90,6 +93,12 @@ class CachePlaceholders extends WireData implements Module
      */
     public function pageRenderHook(HookEvent $e)
     {
+        if ($this->PageRenderHookFullPageOnly) {
+            if ($e->object->id !== $this->wire('page')->id) return;
+
+            $field = $e->arguments(0);
+            if (is_string($field) && $field !== '') return;
+        }
         $e->return = $this->replaceTokens($e->return);
     }
 
