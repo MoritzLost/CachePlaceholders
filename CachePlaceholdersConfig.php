@@ -9,6 +9,7 @@ class CachePlaceholdersConfig extends ModuleConfig
         return [
             'PageRenderHookActive' => true,
             'PageRenderHookFrontendOnly' => true,
+            'PageRenderHookFullPageOnly' => false,
             'DelimiterStart' => CachePlaceholders::DEFAULT_DELIMITER_START,
             'DelimiterEnd' => CachePlaceholders::DEFAULT_DELIMITER_END,
             'DelimiterParameters' => CachePlaceholders::DEFAULT_DELIMITER_PARAMETERS,
@@ -37,6 +38,15 @@ class CachePlaceholdersConfig extends ModuleConfig
         $PageRenderHookFrontendOnly->showIf = 'PageRenderHookActive=1';
         $PageRenderHookFrontendOnly->columnWidth = 50;
         $PageRenderHookFrontendOnly->collapsed = Inputfield::collapsedNever;
+
+        $PageRenderHookFullPageOnly = $this->modules->get('InputfieldCheckbox');
+        $PageRenderHookFullPageOnly->name = 'PageRenderHookFullPageOnly';
+        $PageRenderHookFullPageOnly->label = $this->_('Automatic mode: Full-page renders only');
+        $PageRenderHookFullPageOnly->label2 = $this->_('Skip token replacements when rendering individual fields or partial page content (e.g. repeater items).');
+        $PageRenderHookFullPageOnly->description = $this->_('Enable this when cached page fragments should retain their placeholder tokens for replacement during the final full-page render.');
+        $PageRenderHookFullPageOnly->showIf = 'PageRenderHookActive=1';
+        $PageRenderHookFullPageOnly->columnWidth = 50;
+        $PageRenderHookFullPageOnly->collapsed = Inputfield::collapsedNever;
 
         $module = $this->modules->get('CachePlaceholders');
         $currentTokens = $module->getTokens();
@@ -104,6 +114,7 @@ class CachePlaceholdersConfig extends ModuleConfig
         $inputfields->add($CurrentTokenDisplay);
         $inputfields->add($PageRenderHookActive);
         $inputfields->add($PageRenderHookFrontendOnly);
+        $inputfields->add($PageRenderHookFullPageOnly);
         $inputfields->add($DelimiterSettings);
 
         return $inputfields;
