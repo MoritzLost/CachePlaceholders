@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.0] - 2026-09-30
+
+- **Feature:** Add option to skip placeholder replacement on partial page renders (contributed by [esszett](https://github.com/esszett) in [#3](https://github.com/MoritzLost/CachePlaceholders/pull/3))
+
 ## [1.0.2] - 2025-10-15
 
 - **Bugfix:** Fix deprecation warnings in PHP 8.2 (contributed by [esszett](https://github.com/esszett) in [#2](https://github.com/MoritzLost/CachePlaceholders/pull/2))
